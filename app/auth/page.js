@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../src/context/AuthContext";
 import Footer from "../../components/Footer";
@@ -167,7 +167,6 @@ const SignupPage = ({ switchToLogin }) => {
   const [passwordStrength, setPasswordStrength] = useState(0);
   const { signup } = useAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   // Real-time password strength
   useEffect(() => {
@@ -427,7 +426,7 @@ const SignupPage = ({ switchToLogin }) => {
 };
 
 // Main Auth Page (handles verification redirect)
-export default function AuthPage() {
+function AuthContent() {
   const [isLoginView, setIsLoginView] = useState(true);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -485,5 +484,17 @@ export default function AuthPage() {
       </main>
       <Footer />
     </div>
+  );
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+        <div className="text-gray-800 text-xl font-semibold animate-pulse">Loading...</div>
+      </div>
+    }>
+      <AuthContent />
+    </Suspense>
   );
 }
