@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../src/context/AuthContext";
 import Footer from "../../components/Footer";
 
+
 // Google Icon (unchanged)
 const GoogleIcon = () => (
   <svg className="w-5 h-5 mr-3" viewBox="0 0 48 48">
