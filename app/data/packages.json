@@ -1,0 +1,54 @@
+[
+  {
+    "id": "1",
+    "name": "Beach Paradise Escape",
+    "description": "Unwind on Sri Lanka's pristine beaches with crystal waters and golden sands.",
+    "full_description": "Experience five days of pure coastal bliss along the southern shores of Sri Lanka. This itinerary is designed for relaxation, sun-soaked adventures, and unforgettable ocean experiences. From the laid-back atmosphere of Unawatuna to the thrill of early morning whale watching in Mirissa, you'll discover why Sri Lanka is the gem of the Indian Ocean. Enjoy boutique beachfront accommodation and freshly caught seafood daily.",
+    "nature": "Beach & Leisure",
+    "days": 5,
+    "members": 2,
+    "highlights": "Mirissa Beach, Unawatuna, Galle Fort, Seasonal Whale Watching",
+    "inclusions": "4-star Accommodation, Daily Breakfast, Guided Tours, Private A/C Transport",
+    "images": [
+      "/assets/packages/beach1.jpg",
+      "/assets/packages/beach2.jpg",
+      "/assets/packages/beach3.jpg"
+    ],
+    "carOptions": ["Honda Vezel", "Toyota Premio", "Toyota Coaster"]
+  },
+  {
+    "id": "2",
+    "name": "Central Highlands Adventure",
+    "description": "Explore the rugged beauty and misty tea country of Sri Lanka's central highlands.",
+    "full_description": "Embark on a seven-day journey through the cool, mist-shrouded hills of Sri Lanka. This package is a hiker's dream, featuring challenging treks to iconic viewpoints like Ella Rock and Little Adam's Peak. You'll witness the engineering marvel of the Nine Arch Bridge and immerse yourself in the world-renowned tea culture with factory visits and plantation walks. The serene landscapes and vibrant green valleys promise an invigorating escape.",
+    "nature": "Mountain & Trekking",
+    "days": 7,
+    "members": 4,
+    "highlights": "Ella Rock Trek, Nine Arch Bridge, Tea Plantations, Train Journey (Optional)",
+    "inclusions": "Accommodation (Boutique hotels), Daily Breakfast, Expert Hiking Guides, Private A/C Transport",
+    "images": [
+      "/assets/packages/mountain1.jpg",
+      "/assets/packages/mountain2.jpg",
+      "/assets/packages/mountain3.jpg"
+    ],
+    "carOptions": ["Honda Vezel", "Toyota Premio", "Toyota Coaster"]
+  },
+  
+  {
+    "id": "3",
+    "name": "Ancient Cultural Triangle",
+    "description": "Immerse yourself in Sri Lanka's thousand-year-old history and cultural heritage.",
+    "full_description": "Step back in time with a six-day exploration of Sri Lanka's Cultural Triangle, the heart of the island's ancient civilization. Discover the majestic rock fortress of Sigiriya, the serene artistry within the Dambulla Cave Temple, and the vibrant spiritual city of Kandy. This package offers deep dives into archaeology, history, and local traditions, complete with guidance from accredited cultural experts.",
+    "nature": "Cultural & Historical",
+    "days": 6,
+    "members": 3,
+    "highlights": "Sigiriya Rock Fortress, Dambulla Cave Temple, Temple of the Tooth (Kandy), Ancient City of Polonnaruwa",
+    "inclusions": "Accommodation (Heritage & Standard), Daily Breakfast, Accredited Cultural Guides, Private A/C Transport",
+    "images": [
+      "/assets/packages/cultural1.jpg",
+      "/assets/packages/cultural2.jpg",
+      "/assets/packages/cultural3.jpg"
+    ],
+    "carOptions": ["Honda Vezel", "Toyota Premio", "Toyota Coaster"]
+  }
+]
