@@ -1,10 +1,10 @@
-// app/api/auth/signup/route.js — FIXED VERSION
+// app/api/auth/signup/route.js
 import { NextResponse } from 'next/server';
 import { connectDB } from '../../../../src/lib/db';
 import User from '../../../../src/models/User';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { sendVerificationEmail } from '../../../../src/lib/email';
+import { sendVerificationEmail } from '../../../../src/lib/email'; // adjust path if needed
 import { signupLimiter } from '../../../../src/middleware/rateLimit';
 import zxcvbn from 'zxcvbn';
 
@@ -12,7 +12,7 @@ export async function POST(request) {
   console.log('[Signup] Request received');
 
   try {
-    // Apply rate limiter (Next.js compatible way)
+    // Rate limiter (your existing logic)
     const limiterResponse = signupLimiter(request, () => {}, () => {});
     if (limiterResponse && limiterResponse.status === 429) {
       console.log('[Signup] Rate limit exceeded');
@@ -57,13 +57,21 @@ export async function POST(request) {
       email,
       password,
       verificationToken,
-      verificationTokenExpiry: Date.now() + 3600000,
+      verificationTokenExpiry: Date.now() + 3600000, // 1 hour
     });
+
     console.log('[Signup] User created:', user._id.toString());
 
-    console.log('[Signup] Sending email to:', email);
-    await sendVerificationEmail(email, verificationToken);
-    console.log('[Signup] Email sent');
+    console.log('[Signup] Sending verification email to:', email);
+    
+    // FIXED: Pass object instead of separate args
+    await sendVerificationEmail({
+      to: email,
+      name: name || 'User', // fallback if name missing
+      verificationToken,
+    });
+
+    console.log('[Signup] Email sent successfully');
 
     const userResponse = {
       _id: user._id.toString(),
@@ -85,12 +93,13 @@ export async function POST(request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 15 * 60,
+      maxAge: 15 * 60, // 15 minutes
       path: '/',
     });
 
     console.log('[Signup] Success');
     return authResponse;
+
   } catch (error) {
     console.error('[Signup] CRASH:', {
       message: error.message,
