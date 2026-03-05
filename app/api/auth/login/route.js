@@ -1,72 +1,82 @@
-// app/api/auth/login/route.js
 import { NextResponse } from 'next/server';
 import { connectDB } from '../../../../src/lib/db';
 import User from '../../../../src/models/User';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+import { sendVerificationEmail } from '../../../../src/lib/email';
 
 export async function POST(request) {
   try {
     const { email, password } = await request.json();
 
     if (!email || !password) {
-      return NextResponse.json(
-        { error: 'Email and password are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
     }
 
     await connectDB();
 
     const user = await User.findOne({ email }).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
-      return NextResponse.json(
-        { error: 'Invalid email or password' },
-        { status: 401 }
-      );
+
+    if (!user) {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
     }
 
-    // ADDED: Block unverified users
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+      return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
+    }
+
     if (!user.isVerified) {
-      return NextResponse.json(
-        { error: 'Please verify your email before logging in. Check your inbox.' },
-        { status: 403 }
-      );
+      // Clear any old token first (prevents confusion with old codes)
+      user.verificationToken = undefined;
+      user.verificationTokenExpiry = undefined;
+
+      // Generate fresh OTP
+      const otp = crypto.randomInt(100000, 999999).toString();
+      user.verificationToken = otp;
+      user.verificationTokenExpiry = new Date(Date.now() + 10 * 60 * 1000);
+      await user.save();
+
+      await sendVerificationEmail({
+        to: email,
+        name: user.name || 'User',
+        verificationToken: otp,
+      });
+
+      return NextResponse.json({
+        success: false,
+        requiresVerification: true,
+        message: 'Your account needs email verification. We sent a new 6-digit code to your inbox.',
+        email: email.trim(),
+      }, { status: 200 });
     }
 
-    const userResponse = {
-      _id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    };
+    // Verified → login success
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
-    // Short-lived access token
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '15m' }
-    );
+    const response = NextResponse.json({
+      success: true,
+      user: {
+        _id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+      message: 'Logged in successfully',
+    });
 
-    const authResponse = NextResponse.json(
-      { success: true, user: userResponse },
-      { status: 200 }
-    );
-
-    // Set secure cookie
-    authResponse.cookies.set('token', token, {
+    response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 15 * 60,
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60,
       path: '/',
     });
 
-    return authResponse;
+    return response;
+
   } catch (error) {
-    console.error('Login error:', error.message);
-    return NextResponse.json(
-      { error: 'An error occurred. Please try again.' },
-      { status: 500 }
-    );
+    console.error('[Login] Error:', error);
+    return NextResponse.json({ error: 'Login failed. Please try again.' }, { status: 500 });
   }
 }
