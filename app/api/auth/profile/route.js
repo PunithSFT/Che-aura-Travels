@@ -53,7 +53,7 @@ export async function PUT(request) {
           }
 
           const blob = await put(filename, profilePic, {
-            access: 'public',
+            access: 'authenticated',
             addRandomSuffix: true,
             token: token // Explicitly pass token
           });
