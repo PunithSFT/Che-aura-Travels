@@ -26,7 +26,8 @@ function CustomAuthProvider({ children }) {
   const fetchUser = async () => {
     console.log('fetchUser called - fetching from /api/auth/me');
     try {
-      const res = await fetch('/api/auth/me', {
+      // Add timestamp to bypass cache
+      const res = await fetch(`/api/auth/me?t=${Date.now()}`, {
         credentials: 'include',
         cache: 'no-store',
       });

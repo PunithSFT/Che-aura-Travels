@@ -85,7 +85,7 @@ export default function ProfilePage() {
             <div className="relative group">
               <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white/20 shadow-2xl mb-6 transition-transform duration-500 group-hover:scale-105">
                 <img
-                  src={user.profilePic || "/default-avatar.png"}
+                  src={user.profilePic ? `${user.profilePic}?t=${Date.now()}` : "/default-avatar.png"}
                   alt="Profile"
                   className="w-full h-full object-cover"
                 />
