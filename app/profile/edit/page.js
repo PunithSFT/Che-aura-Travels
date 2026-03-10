@@ -58,9 +58,14 @@ export default function EditProfilePage() {
 
     const data = new FormData();
     data.append("name", formData.name.trim());
-    if (formData.phone) data.append("phone", formData.phone.trim());
-    if (formData.bio) data.append("bio", formData.bio.trim());
-    if (profilePic) data.append("profilePic", profilePic);
+    // Use || "" to ensure we send empty strings instead of skipping fields
+    data.append("phone", (formData.phone || "").trim());
+    data.append("bio", (formData.bio || "").trim());
+    
+    // Only append if it's a new file selected
+    if (profilePic && typeof profilePic !== 'string') {
+      data.append("profilePic", profilePic);
+    }
 
     try {
       console.log("Sending profile update request...");
@@ -80,7 +85,11 @@ export default function EditProfilePage() {
       }
 
       setSuccess("Profile updated successfully!");
+      
+      // Force a small delay to ensure DB consistency before refetching
+      await new Promise(resolve => setTimeout(resolve, 500));
       await refetchUser();
+      
       router.push("/profile");
     } catch (err) {
       console.error("Update error:", err.message);

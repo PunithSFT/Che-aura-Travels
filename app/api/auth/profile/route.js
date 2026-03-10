@@ -14,83 +14,74 @@ export async function PUT(request) {
     const authenticatedUser = await getAuthenticatedUser();
     if (!authenticatedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const user = await User.findById(authenticatedUser._id);
-    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
-
     const formData = await request.formData();
     const name = formData.get('name');
     const phone = formData.get('phone');
     const bio = formData.get('bio');
     const profilePic = formData.get('profilePic');
 
-    console.log('Updating profile for:', user.email);
+    console.log('--- Profile Update Start ---');
+    console.log('User:', authenticatedUser.email);
+    console.log('Raw formData profilePic:', profilePic ? (typeof profilePic === 'string' ? 'string' : 'File/Blob') : 'null');
 
-    if (name !== null) user.name = name.trim() || user.name;
-    if (phone !== null) user.phone = phone.trim();
-    if (bio !== null) user.bio = bio.trim();
+    // Fetch existing user to get current profilePic URL for cleanup
+    const user = await User.findById(authenticatedUser._id);
+    if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+    const updateData = {};
+    if (name !== null) updateData.name = name.trim() || user.name;
+    if (phone !== null) updateData.phone = phone.trim();
+    if (bio !== null) updateData.bio = bio.trim();
 
     // ────────────────────────────────────────────────
     // PROFILE PICTURE UPLOAD LOGIC
     // ────────────────────────────────────────────────
     if (profilePic && typeof profilePic !== 'string' && profilePic.size > 0) {
+      console.log('New image detected, processing upload...');
       try {
         const fileExt = profilePic.name ? profilePic.name.split('.').pop() : 'jpg';
         const filename = `${user._id}-${Date.now()}.${fileExt}`;
-
-        // 1. Detect environment (Vercel vs Local)
         const isVercel = !!process.env.BLOB_READ_WRITE_TOKEN;
 
         if (isVercel) {
-          console.log('Vercel detected: Uploading to Vercel Blob...');
-          
-          // Delete old blob if it exists
+          // Vercel Blob Path
           if (user.profilePic && user.profilePic.includes('public.blob.vercel-storage.com')) {
-            try {
-              await del(user.profilePic);
-              console.log('Deleted old blob image');
-            } catch (err) {
-              console.warn('Could not delete old blob:', err.message);
-            }
+            await del(user.profilePic).catch(err => console.warn('Old blob del failed:', err.message));
           }
-
-          const blob = await put(filename, profilePic, {
-            access: 'public',
-            addRandomSuffix: true,
-          });
-          user.profilePic = blob.url;
-          console.log('Uploaded to Blob:', blob.url);
-
+          const blob = await put(filename, profilePic, { access: 'public', addRandomSuffix: true });
+          updateData.profilePic = blob.url;
+          console.log('Uploaded to Vercel Blob:', blob.url);
         } else {
-          console.log('Development mode: Saving to local filesystem...');
-          
+          // Local Filesystem Path
           const bytes = await profilePic.arrayBuffer();
           const buffer = Buffer.from(bytes);
           const uploadDir = path.join(process.cwd(), 'public/uploads/profiles');
-
           await mkdir(uploadDir, { recursive: true });
           const filepath = path.join(uploadDir, filename);
 
-          // Delete old local file if it exists
           if (user.profilePic && user.profilePic.startsWith('/uploads/')) {
-            try {
-              const oldPath = path.join(process.cwd(), 'public', user.profilePic);
-              await unlink(oldPath);
-              console.log('Deleted old local file');
-            } catch (err) {
-              console.warn('Could not delete old local file:', err.message);
-            }
+            const oldPath = path.join(process.cwd(), 'public', user.profilePic);
+            await unlink(oldPath).catch(err => console.warn('Old file unlink failed:', err.message));
           }
-
           await writeFile(filepath, buffer);
-          user.profilePic = `/uploads/profiles/${filename}`;
+          updateData.profilePic = `/uploads/profiles/${filename}`;
+          console.log('Saved to local storage:', updateData.profilePic);
         }
       } catch (uploadError) {
-        console.error('Upload error:', uploadError);
+        console.error('File upload processing error:', uploadError);
       }
     }
 
-    await user.save();
-    const updatedUser = await User.findById(user._id).select('-password');
+    // Perform the update using findByIdAndUpdate to bypass pre-save hooks if they are causing issues
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    ).select('-password');
+
+    console.log('Update successful');
+    console.log('--- Profile Update End ---');
+
     return NextResponse.json({ success: true, user: updatedUser });
   } catch (error) {
     console.error('Profile update error:', error);
@@ -98,14 +89,14 @@ export async function PUT(request) {
   }
 }
 
-// DELETE (account deletion)
+// DELETE remains same but improved cleanup
 export async function DELETE(request) {
   try {
-    const userWithPassword = await getAuthenticatedUser();
-    if (!userWithPassword) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const userAuth = await getAuthenticatedUser();
+    if (!userAuth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
     const { password } = await request.json();
-    const user = await User.findById(userWithPassword._id).select('+password');
+    const user = await User.findById(userAuth._id).select('+password');
 
     if (user.password) {
       if (!password) return NextResponse.json({ error: 'Password required' }, { status: 400 });
@@ -113,7 +104,6 @@ export async function DELETE(request) {
       if (!isMatch) return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
     }
 
-    // Cleanup assets before deletion
     if (user.profilePic) {
       if (user.profilePic.includes('public.blob.vercel-storage.com')) {
         await del(user.profilePic).catch(() => {});
@@ -124,7 +114,6 @@ export async function DELETE(request) {
     }
 
     await User.deleteOne({ _id: user._id });
-
     const response = NextResponse.json({ success: true, message: 'Account deleted' });
     response.cookies.set('token', '', { expires: new Date(0), path: '/' });
     return response;
