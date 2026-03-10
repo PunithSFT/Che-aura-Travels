@@ -4,12 +4,14 @@ import bcrypt from 'bcryptjs';
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, lowercase: true },
-  password: { type: String, required: true, select: false }, // select: false hides it in queries
+  password: { type: String, select: false }, // Made not strictly required here to handle Google users
+  phone: { type: String },
+  bio: { type: String },
+  profilePic: { type: String },
   role: { type: String, default: 'user' },
   isVerified: { type: Boolean, default: false },
   verificationToken: String,
   verificationTokenExpiry: Date,
-  // ... other fields
 }, { timestamps: true });
 
 // IMPORTANT: Hash password before saving (only if modified)

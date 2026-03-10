@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../src/context/AuthContext";
 import Footer from "../../components/Footer";
+import { loginWithGoogle } from "../../src/lib/auth-client";
 
 // Google Icon (unchanged)
 const GoogleIcon = () => (
@@ -19,8 +20,8 @@ const GoogleIcon = () => (
 const SocialLoginBlock = () => (
   <div className="space-y-3 mb-6">
     <button
+      onClick={() => loginWithGoogle("/")} // redirects to home after login
       className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition duration-150 shadow-sm"
-      onClick={() => alert("Google login coming soon!")}
     >
       <GoogleIcon />
       Continue with Google

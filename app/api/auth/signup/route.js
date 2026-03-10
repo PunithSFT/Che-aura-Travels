@@ -10,12 +10,6 @@ export async function POST(request) {
   console.log('[Signup] Request received');
 
   try {
-    const limiterResponse = signupLimiter(request, () => {}, () => {});
-    if (limiterResponse && limiterResponse.status === 429) {
-      console.log('[Signup] Rate limit exceeded');
-      return limiterResponse;
-    }
-
     const { name, email, password } = await request.json();
     console.log('[Signup] Body parsed:', { name, email, passwordProvided: !!password });
 

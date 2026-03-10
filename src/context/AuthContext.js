@@ -3,11 +3,25 @@
 
 import { createContext, useContext, useState, useEffect } from 'react';
 
+// We import SessionProvider separately to avoid Turbopack crash
+import { SessionProvider, signOut, useSession } from 'next-auth/react';
+
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
+  return (
+    // SessionProvider enables Google login / session everywhere
+    <SessionProvider refetchInterval={5 * 60} refetchOnWindowFocus={true}>
+      <CustomAuthProvider>{children}</CustomAuthProvider>
+    </SessionProvider>
+  );
+}
+
+// Inner provider — your custom logic lives here
+function CustomAuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { data: session, status } = useSession();
 
   const fetchUser = async () => {
     console.log('fetchUser called - fetching from /api/auth/me');
@@ -35,10 +49,12 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Sync session state with custom user state
   useEffect(() => {
-    console.log('AuthProvider mounted - initial fetchUser');
-    fetchUser();
-  }, []);
+    if (status === 'authenticated' || status === 'unauthenticated') {
+      fetchUser();
+    }
+  }, [status, session]);
 
   const login = async (email, password) => {
     console.log('login called');
@@ -56,7 +72,7 @@ export function AuthProvider({ children }) {
 
     setUser(data.user);
     console.log('login - refetching user');
-    await fetchUser(); // This calls refetchUser internally
+    await fetchUser();
     return { success: true, user: data.user };
   };
 
@@ -80,43 +96,44 @@ export function AuthProvider({ children }) {
     return { success: true, user: data.user };
   };
 
-  // src/context/AuthContext.js (update only the logout function)
+  const logout = async () => {
+    try {
+      // 1. Sign out from NextAuth (if logged in with Google)
+      await signOut({ redirect: false });
 
-const logout = async () => {
-  try {
-    // Call server to clear cookie properly
-    const res = await fetch('/api/auth/logout', {
-      method: 'POST',
-      credentials: 'include',
-    });
+      // 2. Call your server logout endpoint
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
 
-    if (!res.ok) {
-      throw new Error('Logout failed on server');
+      if (!res.ok) {
+        throw new Error('Logout failed on server');
+      }
+
+      // Clear client state
+      setUser(null);
+
+      // Redirect to home or login
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Logout error:', err);
+      // Fallback: clear cookie manually
+      document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
+      setUser(null);
+      window.location.href = '/';
     }
-
-    // Clear client state
-    setUser(null);
-
-    // Optional: force refresh to ensure clean state
-    window.location.href = '/';
-  } catch (err) {
-    console.error('Logout error:', err);
-    // Fallback: clear client-side anyway
-    document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;';
-    setUser(null);
-    window.location.href = '/';
-  }
-};
+  };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        loading, 
-        login, 
-        signup, 
-        logout, 
-        refetchUser: fetchUser  // <--- This makes refetchUser available
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        signup,
+        logout,
+        refetchUser: fetchUser,
       }}
     >
       {children}
