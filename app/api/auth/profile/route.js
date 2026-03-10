@@ -2,10 +2,11 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '../../../../src/lib/db';
 import User from '../../../../src/models/User';
-import { writeFile } from 'fs/promises';
+import { writeFile, unlink } from 'fs/promises';
 import path from 'path';
 import { mkdir } from 'fs/promises';
 import { getAuthenticatedUser } from '../../../../src/lib/serverAuth';
+import { put, del } from '@vercel/blob';
 
 export async function PUT(request) {
   try {
@@ -13,7 +14,6 @@ export async function PUT(request) {
     const authenticatedUser = await getAuthenticatedUser();
     if (!authenticatedUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // Fetch a fresh document to ensure we have all fields and it's a Mongoose document
     const user = await User.findById(authenticatedUser._id);
     if (!user) return NextResponse.json({ error: 'User not found' }, { status: 404 });
 
@@ -23,41 +23,73 @@ export async function PUT(request) {
     const bio = formData.get('bio');
     const profilePic = formData.get('profilePic');
 
-    console.log('Updating profile for user:', user.email);
-    console.log('Received data:', { name, phone, bio, hasProfilePic: !!profilePic });
+    console.log('Updating profile for:', user.email);
 
-    // Update text fields (allow empty strings to clear fields except for name)
     if (name !== null) user.name = name.trim() || user.name;
     if (phone !== null) user.phone = phone.trim();
     if (bio !== null) user.bio = bio.trim();
 
-    // Handle profile picture
+    // ────────────────────────────────────────────────
+    // PROFILE PICTURE UPLOAD LOGIC
+    // ────────────────────────────────────────────────
     if (profilePic && typeof profilePic !== 'string' && profilePic.size > 0) {
       try {
-        const bytes = await profilePic.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-
         const fileExt = profilePic.name ? profilePic.name.split('.').pop() : 'jpg';
         const filename = `${user._id}-${Date.now()}.${fileExt}`;
-        const uploadDir = path.join(process.cwd(), 'public/uploads/profiles');
 
-        await mkdir(uploadDir, { recursive: true });
-        const filepath = path.join(uploadDir, filename);
+        // 1. Detect environment (Vercel vs Local)
+        const isVercel = !!process.env.BLOB_READ_WRITE_TOKEN;
 
-        await writeFile(filepath, buffer);
-        console.log('Profile picture saved at:', filepath);
+        if (isVercel) {
+          console.log('Vercel detected: Uploading to Vercel Blob...');
+          
+          // Delete old blob if it exists
+          if (user.profilePic && user.profilePic.includes('public.blob.vercel-storage.com')) {
+            try {
+              await del(user.profilePic);
+              console.log('Deleted old blob image');
+            } catch (err) {
+              console.warn('Could not delete old blob:', err.message);
+            }
+          }
 
-        user.profilePic = `/uploads/profiles/${filename}`;
+          const blob = await put(filename, profilePic, {
+            access: 'public',
+            addRandomSuffix: true,
+          });
+          user.profilePic = blob.url;
+          console.log('Uploaded to Blob:', blob.url);
+
+        } else {
+          console.log('Development mode: Saving to local filesystem...');
+          
+          const bytes = await profilePic.arrayBuffer();
+          const buffer = Buffer.from(bytes);
+          const uploadDir = path.join(process.cwd(), 'public/uploads/profiles');
+
+          await mkdir(uploadDir, { recursive: true });
+          const filepath = path.join(uploadDir, filename);
+
+          // Delete old local file if it exists
+          if (user.profilePic && user.profilePic.startsWith('/uploads/')) {
+            try {
+              const oldPath = path.join(process.cwd(), 'public', user.profilePic);
+              await unlink(oldPath);
+              console.log('Deleted old local file');
+            } catch (err) {
+              console.warn('Could not delete old local file:', err.message);
+            }
+          }
+
+          await writeFile(filepath, buffer);
+          user.profilePic = `/uploads/profiles/${filename}`;
+        }
       } catch (uploadError) {
-        console.error('Error saving profile picture:', uploadError);
-        // Continue saving other fields even if picture fails
+        console.error('Upload error:', uploadError);
       }
     }
 
     await user.save();
-    console.log('User document saved successfully');
-
-    // Return updated user without password
     const updatedUser = await User.findById(user._id).select('-password');
     return NextResponse.json({ success: true, user: updatedUser });
   } catch (error) {
@@ -69,42 +101,35 @@ export async function PUT(request) {
 // DELETE (account deletion)
 export async function DELETE(request) {
   try {
-    const userWithPassword = await getAuthenticatedUser(); // Note: getAuthenticatedUser excludes password
+    const userWithPassword = await getAuthenticatedUser();
     if (!userWithPassword) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-    // We need password to confirm deletion, but Google users don't have a password
-    // For simplicity, let's allow Google users to delete without password if they are authenticated
-    // or we could check if they have a password set.
-
     const { password } = await request.json();
-    
-    // Find user again WITH password for verification
     const user = await User.findById(userWithPassword._id).select('+password');
 
     if (user.password) {
-        if (!password) {
-            return NextResponse.json({ error: 'Password required' }, { status: 400 });
-        }
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
-        }
+      if (!password) return NextResponse.json({ error: 'Password required' }, { status: 400 });
+      const isMatch = await user.comparePassword(password);
+      if (!isMatch) return NextResponse.json({ error: 'Incorrect password' }, { status: 401 });
     }
 
-    // Delete user
+    // Cleanup assets before deletion
+    if (user.profilePic) {
+      if (user.profilePic.includes('public.blob.vercel-storage.com')) {
+        await del(user.profilePic).catch(() => {});
+      } else if (user.profilePic.startsWith('/uploads/')) {
+        const oldPath = path.join(process.cwd(), 'public', user.profilePic);
+        await unlink(oldPath).catch(() => {});
+      }
+    }
+
     await User.deleteOne({ _id: user._id });
 
-    const response = NextResponse.json({ success: true, message: 'Account deleted successfully' });
-    
-    // Clear custom JWT cookie
+    const response = NextResponse.json({ success: true, message: 'Account deleted' });
     response.cookies.set('token', '', { expires: new Date(0), path: '/' });
-    
-    // Note: NextAuth session deletion usually happens on client side via signOut()
-    // but clearing the cookie here helps.
-
     return response;
   } catch (error) {
-    console.error('Delete profile error:', error);
+    console.error('Delete error:', error);
     return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }
