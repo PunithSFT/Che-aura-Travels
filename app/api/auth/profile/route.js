@@ -55,7 +55,8 @@ export async function PUT(request) {
           const blob = await put(filename, profilePic, {
             access: 'authenticated',
             addRandomSuffix: true,
-            token: token // Explicitly pass token
+            token: token,
+            contentType: profilePic.type || 'image/jpeg'
           });
           
           if (!blob || !blob.url) throw new Error('Vercel Blob upload failed to return a URL');
