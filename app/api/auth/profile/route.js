@@ -53,7 +53,7 @@ export async function PUT(request) {
           }
 
           const blob = await put(filename, profilePic, {
-            access: 'authenticated',
+            access: 'public',
             addRandomSuffix: true,
             token: token,
             contentType: profilePic.type || 'image/jpeg'
