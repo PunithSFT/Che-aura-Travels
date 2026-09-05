@@ -1,4 +1,8 @@
 /* app/globals.css */
+
+/* Leaflet base styles – MUST be imported here */
+@import 'leaflet/dist/leaflet.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -23,4 +27,48 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+}
+
+/* Leaflet fixes & enhancements */
+.leaflet-container {
+  z-index: 10 !important; /* prevent overlap issues with other UI elements */
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: white;
+  color: #1f2937;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.2);
+  font-family: 'Inter', sans-serif;
+}
+
+.leaflet-popup-content {
+  margin: 14px 20px;
+  line-height: 1.6;
+  font-size: 15px;
+}
+
+.leaflet-popup-close-button {
+  color: #6b7280 !important;
+  font-size: 20px !important;
+  top: 8px !important;
+  right: 8px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #111827 !important;
+  background: #f3f4f6;
+  border-radius: 50%;
+}
+
+/* Optional: custom marker cluster styles if you use clustering later */
+.leaflet-marker-cluster {
+  background: #ef4444 !important;
+  border: 2px solid white;
+  color: white !important;
+  font-weight: bold;
 }
